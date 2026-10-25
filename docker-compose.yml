@@ -1,0 +1,28 @@
+# Production deploy, run on the server (not used for local dev — that's `npm run dev`).
+# One-time setup on the server before the first `docker compose up`:
+#   1. git clone the repo here
+#   2. cp .env.example .env   and fill in real values: COOKIE_SECURE=true, APP_ORIGIN=https://<your domain>,
+#      APP_DOMAIN=<your domain>, TRAEFIK_NETWORK=<your Traefik network name>, S3_*
+#   3. mkdir -p data          (bind-mounted below so the SQLite db survives redeploys)
+#
+# docker-compose.yml itself is never edited on the server — all host-specific values come from .env,
+# so `git pull` never collides with local changes to this file.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    networks:
+      - core-web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.video-analysis.rule=Host(`${APP_DOMAIN}`)
+      - traefik.http.routers.video-analysis.entrypoints=websecure
+      - traefik.http.routers.video-analysis.tls.certresolver=letsencrypt
+      - traefik.http.services.video-analysis.loadbalancer.server.port=8787
+
+networks:
+  core-web:
+    external: true

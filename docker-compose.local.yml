@@ -1,0 +1,18 @@
+# Local-only run of the production image — no Traefik, no external network, port published
+# directly on the host. Useful for testing the Docker build itself, or self-hosting without a
+# reverse proxy. Not used by the GitHub Actions deploy (that uses docker-compose.yml).
+#
+#   cp .env.example .env   # COOKIE_SECURE=false and APP_ORIGIN=http://localhost:8787 are fine here
+#   mkdir -p data
+#   docker compose -f docker-compose.local.yml up -d --build
+#
+# APP_DOMAIN/TRAEFIK_NETWORK in .env are ignored by this file.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - 8787:8787
+    volumes:
+      - ./data:/app/data

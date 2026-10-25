@@ -1,0 +1,139 @@
+import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListPartsCommand,
+  PutObjectCommand,
+  S3Client,
+  S3ServiceException,
+  UploadPartCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { UploadedPart } from '../../shared/types.ts';
+import type { Config } from './config.ts';
+
+/**
+ * The only storage operations the app uses. Everything goes through the plain S3 API, so
+ * switching from Cloudflare R2 to Hetzner (or any S3-compatible provider) is a config change.
+ */
+export interface ObjectStorage {
+  createMultipartUpload(key: string, contentType: string | null): Promise<string>;
+  presignUploadPart(key: string, uploadId: string, partNumber: number, expiresInSec: number): Promise<string>;
+  /** Throws NoSuchUploadError when the upload was completed, aborted or expired. */
+  listParts(key: string, uploadId: string): Promise<UploadedPart[]>;
+  completeMultipartUpload(key: string, uploadId: string, parts: Omit<UploadedPart, 'size'>[]): Promise<void>;
+  abortMultipartUpload(key: string, uploadId: string): Promise<void>;
+  /** Returns null when the object does not exist. */
+  headObject(key: string): Promise<{ size: number } | null>;
+  presignGet(key: string, expiresInSec: number): Promise<string>;
+  /** Single-request upload for small files; the browser must send the same Content-Type. */
+  presignPut(key: string, contentType: string, expiresInSec: number): Promise<string>;
+  deleteObject(key: string): Promise<void>;
+}
+
+export class NoSuchUploadError extends Error {}
+
+export function createS3Client(s3: Config['s3']): S3Client {
+  return new S3Client({
+    endpoint: s3.endpoint,
+    region: s3.region,
+    forcePathStyle: s3.forcePathStyle,
+    credentials: { accessKeyId: s3.accessKeyId, secretAccessKey: s3.secretAccessKey },
+    // Newer SDKs add checksum headers by default, which presigned browser uploads cannot send.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
+  });
+}
+
+export function createS3Storage(s3: Config['s3']): ObjectStorage {
+  const client = createS3Client(s3);
+  const Bucket = s3.bucket;
+
+  return {
+    async createMultipartUpload(key, contentType) {
+      const out = await client.send(
+        new CreateMultipartUploadCommand({ Bucket, Key: key, ContentType: contentType ?? undefined }),
+      );
+      if (!out.UploadId) throw new Error('Storage did not return an upload id');
+      return out.UploadId;
+    },
+
+    presignUploadPart(key, uploadId, partNumber, expiresInSec) {
+      return getSignedUrl(
+        client,
+        new UploadPartCommand({ Bucket, Key: key, UploadId: uploadId, PartNumber: partNumber }),
+        { expiresIn: expiresInSec },
+      );
+    },
+
+    async listParts(key, uploadId) {
+      const parts: UploadedPart[] = [];
+      let marker: string | undefined;
+      try {
+        do {
+          const out = await client.send(
+            new ListPartsCommand({ Bucket, Key: key, UploadId: uploadId, PartNumberMarker: marker }),
+          );
+          for (const p of out.Parts ?? []) {
+            if (p.PartNumber && p.ETag) parts.push({ partNumber: p.PartNumber, etag: p.ETag, size: p.Size ?? 0 });
+          }
+          marker = out.IsTruncated ? out.NextPartNumberMarker : undefined;
+        } while (marker);
+      } catch (err) {
+        if (isS3Error(err, 'NoSuchUpload', 404)) throw new NoSuchUploadError('Upload no longer exists in storage');
+        throw err;
+      }
+      return parts;
+    },
+
+    async completeMultipartUpload(key, uploadId, parts) {
+      await client.send(
+        new CompleteMultipartUploadCommand({
+          Bucket,
+          Key: key,
+          UploadId: uploadId,
+          MultipartUpload: { Parts: parts.map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })) },
+        }),
+      );
+    },
+
+    async abortMultipartUpload(key, uploadId) {
+      try {
+        await client.send(new AbortMultipartUploadCommand({ Bucket, Key: key, UploadId: uploadId }));
+      } catch (err) {
+        if (!isS3Error(err, 'NoSuchUpload', 404)) throw err;
+      }
+    },
+
+    async headObject(key) {
+      try {
+        const out = await client.send(new HeadObjectCommand({ Bucket, Key: key }));
+        return { size: out.ContentLength ?? 0 };
+      } catch (err) {
+        if (isS3Error(err, 'NotFound', 404)) return null;
+        throw err;
+      }
+    },
+
+    presignGet(key, expiresInSec) {
+      return getSignedUrl(client, new GetObjectCommand({ Bucket, Key: key }), { expiresIn: expiresInSec });
+    },
+
+    presignPut(key, contentType, expiresInSec) {
+      return getSignedUrl(client, new PutObjectCommand({ Bucket, Key: key, ContentType: contentType }), {
+        expiresIn: expiresInSec,
+      });
+    },
+
+    async deleteObject(key) {
+      await client.send(new DeleteObjectCommand({ Bucket, Key: key }));
+    },
+  };
+}
+
+function isS3Error(err: unknown, name: string, status: number): boolean {
+  return err instanceof S3ServiceException && (err.name === name || err.$metadata.httpStatusCode === status);
+}
