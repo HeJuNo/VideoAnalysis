@@ -1,9 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
-  GetBucketCorsCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -37,7 +37,12 @@ export interface ObjectStorage {
   deleteObject(key: string): Promise<void>;
   /** Throws when the bucket is unreachable or misconfigured; used for health checks. */
   ping(): Promise<void>;
-  /** Whether the bucket's CORS policy allows browser uploads from this origin; used for health checks. */
+  /**
+   * Whether the bucket's CORS policy allows browser uploads from this origin; used for health
+   * checks. Sends a real CORS preflight (OPTIONS) to a presigned URL, the same thing a browser
+   * does before a PUT — not a `GetBucketCorsCommand` read, which needs bucket-settings permissions
+   * the app's object-level-only token deliberately doesn't have (see CLAUDE.md).
+   */
   checkCors(origin: string): Promise<{ ok: boolean; reason: string | null }>;
   /**
    * How far this server's clock is from the storage endpoint's, in seconds (positive = ahead).
@@ -157,23 +162,39 @@ export function createS3Storage(s3: Config['s3']): ObjectStorage {
     },
 
     async checkCors(origin) {
-      let rules;
+      // A throwaway key: the preflight response depends only on the bucket's CORS policy, never
+      // on whether the key exists, so there's nothing to clean up afterwards.
+      const probeKey = `__health-check__/cors-probe-${randomUUID()}`;
+      let res: Response;
       try {
-        rules = (await client.send(new GetBucketCorsCommand({ Bucket }))).CORSRules ?? [];
+        const url = await getSignedUrl(
+          client,
+          new PutObjectCommand({ Bucket, Key: probeKey, ContentType: 'text/plain' }),
+          { expiresIn: 60 },
+        );
+        res = await fetch(url, {
+          method: 'OPTIONS',
+          headers: {
+            Origin: origin,
+            'Access-Control-Request-Method': 'PUT',
+            'Access-Control-Request-Headers': 'content-type',
+          },
+        });
       } catch (err) {
-        return { ok: false, reason: `Could not read the bucket's CORS policy: ${(err as Error).message}` };
+        return { ok: false, reason: `Could not reach the storage endpoint: ${(err as Error).message}` };
       }
-      // Matches what `npm run storage:setup` configures: PUT allowed, ETag exposed (needed to
-      // complete a multipart upload), for this exact origin or a wildcard.
-      const covered = rules.some(
-        (rule) =>
-          (rule.AllowedOrigins ?? []).some((allowed) => allowed === '*' || allowed === origin) &&
-          (rule.AllowedMethods ?? []).includes('PUT') &&
-          (rule.ExposeHeaders ?? []).some((header) => header.toLowerCase() === 'etag'),
-      );
-      return covered
+      if (!res.ok) {
+        return { ok: false, reason: `Storage endpoint rejected the CORS preflight (HTTP ${res.status})` };
+      }
+      const allowOrigin = res.headers.get('access-control-allow-origin');
+      const allowMethods = (res.headers.get('access-control-allow-methods') ?? '').toUpperCase();
+      const allowed = (allowOrigin === '*' || allowOrigin === origin) && allowMethods.includes('PUT');
+      return allowed
         ? { ok: true, reason: null }
-        : { ok: false, reason: `No CORS rule allows PUT uploads (with ETag exposed) from ${origin}` };
+        : {
+            ok: false,
+            reason: `No CORS rule allows PUT uploads from ${origin} (checks Origin/Methods only — ETag exposure for completing uploads was verified manually and isn't re-checked here)`,
+          };
     },
 
     async checkClockSkew() {

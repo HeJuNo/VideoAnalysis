@@ -95,6 +95,7 @@ export interface HealthDto {
   /** Whether the bucket's CORS policy allows browser uploads from this app's origin. Informational
    * only — doesn't affect `ok` above, since it's a storage-provider setting, not something a
    * restart fixes. */
+  /** Checks an actual CORS preflight, not just the bucket's stated policy — see storage.ts. */
   cors: { ok: boolean; reason: string | null };
   /** Same reasoning as `cors` above: informational only, doesn't affect `ok`. A skewed clock makes
    * presigned upload URLs expire early or immediately, which looks like a CORS/network error. */

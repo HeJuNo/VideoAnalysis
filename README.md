@@ -67,16 +67,24 @@ Hetzner's multipart upload support is still to be verified before switching.
 ## Deploy
 
 Docker Compose on a server that already runs Traefik (for TLS/routing) and is managed by
-[Arcane](https://getarcane.app). Arcane pulls this repo itself (Git Sync) and redeploys on push —
-there is no GitHub Actions workflow and nothing SSHes in from CI.
+[Arcane](https://getarcane.app). Arcane pulls this repo itself (Git Sync) — there is no GitHub
+Actions workflow and nothing SSHes in from CI.
+
+**This isn't fully automatic.** This app has a `build:` in its Compose file, not an `image:`
+reference, and Arcane's Git Sync (Auto Sync, Redeploy After Sync, Auto Updates) only pulls files
+and restarts containers from whatever image already exists — none of it rebuilds the image from
+the Dockerfile. So after a sync brings in new code, **Build & Deploy** still has to be triggered
+by hand on the project page in Arcane; otherwise the old image keeps running indefinitely.
 
 One-time setup, in Arcane:
 
 1. **Customization → Git Repositories → Add Repository** — this repo's URL (public, no auth needed).
 2. **Projects → Create from Git Repo → Pull** — Compose File Path: `docker-compose.yml`.
-3. Enable **Auto Sync** (pick an interval) and **Redeploy After Sync** so every push to `main`
-   redeploys automatically; otherwise click **Sync from Git** manually.
-4. In that project's environment settings, set the real values: `COOKIE_SECURE=true`,
+3. Enable **Auto Sync** (pick an interval) and **Redeploy After Sync** so the container picks up
+   non-code changes (e.g. env/compose edits) on its own; otherwise click **Sync from Git** manually.
+4. After every push that changes app code, open the project and click **Build & Deploy** to
+   actually rebuild the image — Sync alone will not do this.
+5. In that project's environment settings, set the real values: `COOKIE_SECURE=true`,
    `APP_ORIGIN=https://<your domain>`, `APP_DOMAIN=<your domain>`, and the `S3_*` keys. These are
    never committed — Arcane merges them into `.env` on the host itself.
 
