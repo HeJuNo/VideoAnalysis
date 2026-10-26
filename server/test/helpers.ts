@@ -52,6 +52,8 @@ export class FakeStorage implements ObjectStorage {
     this.objects.delete(key);
     this.objectBytes.delete(key);
   }
+  /** Override to `async () => { throw new Error(...) }` in a test to simulate storage being down. */
+  async ping() {}
   async listObjects(prefix: string) {
     return [...this.objects.entries()]
       .filter(([key]) => key.startsWith(prefix))

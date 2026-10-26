@@ -87,6 +87,33 @@ One-time setup, in Arcane:
 There is no CI test gate before deploy: Arcane pulls and redeploys whatever is on `main`, so run
 `npm test && npm run typecheck && npm run build` yourself before pushing to `main`.
 
+The image has a Docker `HEALTHCHECK` that polls `GET /api/health` (unauthenticated; checks the
+database and S3 are both reachable), so Docker/Arcane show the container as unhealthy if either
+breaks. The same check is visible in the app itself under **Status**.
+
+## HTTPS without a domain
+
+The app needs a real secure context — plain HTTP only satisfies that for `http://localhost`.
+Anything else over plain HTTP (e.g. a LAN IP) breaks `crypto.randomUUID()` (uploads won't start)
+and `Secure` cookies (`COOKIE_SECURE=true` logins won't stick). If there's no domain/Traefik in
+front of the app (e.g. `docker-compose.local.yml`), generate a self-signed certificate and have the
+app terminate HTTPS itself:
+
+```sh
+mkdir -p certs
+openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+  -keyout certs/key.pem -out certs/cert.pem \
+  -subj "/CN=video-analysis.local" \
+  -addext "subjectAltName=DNS:video-analysis.local,IP:<your LAN IP>,IP:127.0.0.1"
+```
+
+Then in `.env`: `TLS_CERT_PATH=/app/certs/cert.pem`, `TLS_KEY_PATH=/app/certs/key.pem`,
+`COOKIE_SECURE=true`, and `APP_ORIGIN=https://<your LAN IP or video-analysis.local>:8787`. The
+browser will show an untrusted-certificate warning the first time (expected for a self-signed
+cert) — proceeding past it still gives a real secure context, so the app works. To avoid the
+warning entirely, generate the cert with [mkcert](https://github.com/FiloSottile/mkcert) instead
+and trust its local CA on each device.
+
 ## Commands
 
 | Command | What it does |

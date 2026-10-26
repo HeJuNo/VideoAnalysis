@@ -186,6 +186,9 @@ main {
 .warning {
   color: var(--warn);
 }
+.ok {
+  color: var(--ok);
+}
 
 .login {
   min-height: 100vh;

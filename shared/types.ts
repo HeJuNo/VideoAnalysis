@@ -87,6 +87,14 @@ export interface OrphanedGroupDto {
   totalBytes: number;
 }
 
+/** Whether the database and object storage are reachable right now. */
+export interface HealthDto {
+  ok: boolean;
+  database: { ok: boolean };
+  storage: { ok: boolean };
+  checkedAt: string;
+}
+
 export interface UploadedPart {
   partNumber: number;
   etag: string;

@@ -5,6 +5,7 @@ import type { AppDeps, AppEnv } from './context.ts';
 import { assetRoutes } from './routes/assets.ts';
 import { athleteRoutes } from './routes/athletes.ts';
 import { authRoutes, loadUser } from './routes/auth.ts';
+import { healthRoutes } from './routes/health.ts';
 import { profileRoutes } from './routes/profiles.ts';
 import { recoveredRoutes } from './routes/recovered.ts';
 import { sceneRoutes } from './routes/scenes.ts';
@@ -26,13 +27,15 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   });
   app.use('/api/*', loadUser(deps));
   app.use('/api/*', async (c, next) => {
-    if (!c.req.path.startsWith('/api/auth/') && !c.get('user')) {
+    const isPublic = c.req.path.startsWith('/api/auth/') || c.req.path === '/api/health';
+    if (!isPublic && !c.get('user')) {
       throw new HTTPException(401, { message: 'Not signed in' });
     }
     await next();
   });
 
   app.route('/api/auth', authRoutes(deps));
+  app.route('/api', healthRoutes(deps));
   app.route('/api', sessionRoutes(deps));
   app.route('/api', uploadRoutes(deps));
   app.route('/api', videoRoutes(deps));

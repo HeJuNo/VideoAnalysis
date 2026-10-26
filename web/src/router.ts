@@ -9,7 +9,8 @@ export type Route =
   | { name: 'profile'; id: string }
   | { name: 'review'; sessionId: string | null }
   | { name: 'scene'; id: string }
-  | { name: 'athletes' };
+  | { name: 'athletes' }
+  | { name: 'status' };
 
 export const href = {
   sessions: () => '#/',
@@ -21,6 +22,7 @@ export const href = {
   review: (sessionId?: string | null) => (sessionId ? `#/review/${sessionId}` : '#/review'),
   scene: (id: string) => `#/scenes/${id}`,
   athletes: () => '#/athletes',
+  status: () => '#/status',
 };
 
 export function navigate(to: string): void {
@@ -35,6 +37,7 @@ export function parseRoute(hash: string): Route {
   if (section === 'review') return { name: 'review', sessionId: id || null };
   if (section === 'scenes' && id) return { name: 'scene', id };
   if (section === 'athletes') return { name: 'athletes' };
+  if (section === 'status') return { name: 'status' };
   return { name: 'sessions' };
 }
 

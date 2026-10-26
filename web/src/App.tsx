@@ -8,6 +8,7 @@ import { SessionsPage } from './pages/SessionsPage.tsx';
 import { ProfileEditorPage } from './profiles/ProfileEditorPage.tsx';
 import { ProfilesPage } from './profiles/ProfilesPage.tsx';
 import { AthletesPage } from './pages/AthletesPage.tsx';
+import { StatusPage } from './pages/StatusPage.tsx';
 import { ReviewQueuePage } from './review/ReviewQueuePage.tsx';
 import { ReviewScenePage } from './review/ReviewScenePage.tsx';
 import { TaggerPage } from './tagging/TaggerPage.tsx';
@@ -35,7 +36,9 @@ export function App() {
         ? 'review'
         : route.name === 'athletes'
           ? 'athletes'
-          : 'sessions';
+          : route.name === 'status'
+            ? 'status'
+            : 'sessions';
 
   const logout = async () => {
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
@@ -63,6 +66,9 @@ export function App() {
           <a href={href.profiles()} className={section === 'profiles' ? 'active' : undefined}>
             Profiles
           </a>
+          <a href={href.status()} className={section === 'status' ? 'active' : undefined}>
+            Status
+          </a>
         </nav>
         <span className="spacer" />
         <span className="muted">
@@ -80,6 +86,7 @@ export function App() {
         {route.name === 'review' && <ReviewQueuePage key={route.sessionId ?? 'all'} sessionId={route.sessionId} />}
         {route.name === 'scene' && <ReviewScenePage key={route.id} id={route.id} user={user} />}
         {route.name === 'athletes' && <AthletesPage />}
+        {route.name === 'status' && <StatusPage />}
         {route.name === 'profiles' && <ProfilesPage user={user} />}
         {route.name === 'profile' && <ProfileEditorPage key={route.id} id={route.id} user={user} />}
       </main>

@@ -2,7 +2,10 @@
 # directly on the host. Useful for testing the Docker build itself, or self-hosting without a
 # reverse proxy. Not used by Arcane's deploy (that pulls and runs docker-compose.yml).
 #
-#   cp .env.example .env   # COOKIE_SECURE=false and APP_ORIGIN=http://localhost:8787 are fine here
+#   cp .env.example .env   # see README "HTTPS without a domain" if accessed as more than
+#                          # http://localhost — browser APIs the app needs require a secure
+#                          # context, so a LAN IP/hostname needs TLS_CERT_PATH/TLS_KEY_PATH,
+#                          # COOKIE_SECURE=true and a matching APP_ORIGIN.
 #   mkdir -p data
 #   docker compose -f docker-compose.local.yml up -d --build
 #
@@ -16,3 +19,4 @@ services:
       - 8787:8787
     volumes:
       - ./data:/app/data
+      - ./certs:/app/certs # only needed when TLS_CERT_PATH/TLS_KEY_PATH point in here

@@ -4,6 +4,7 @@ import {
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   ListPartsCommand,
@@ -33,6 +34,8 @@ export interface ObjectStorage {
   /** Single-request upload for small files; the browser must send the same Content-Type. */
   presignPut(key: string, contentType: string, expiresInSec: number): Promise<string>;
   deleteObject(key: string): Promise<void>;
+  /** Throws when the bucket is unreachable or misconfigured; used for health checks. */
+  ping(): Promise<void>;
   /** Keys and sizes of every object under the given prefix. */
   listObjects(prefix: string): Promise<{ key: string; size: number }[]>;
   /** Reads part of an object, e.g. to probe a video's header without fetching the whole file. */
@@ -135,6 +138,10 @@ export function createS3Storage(s3: Config['s3']): ObjectStorage {
 
     async deleteObject(key) {
       await client.send(new DeleteObjectCommand({ Bucket, Key: key }));
+    },
+
+    async ping() {
+      await client.send(new HeadBucketCommand({ Bucket }));
     },
 
     async listObjects(prefix) {
