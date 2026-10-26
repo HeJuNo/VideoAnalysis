@@ -22,5 +22,5 @@ COPY shared ./shared
 COPY --from=build /app/web/dist ./web/dist
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://localhost:'+(process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "require(process.env.TLS_CERT_PATH?'node:https':'node:http').request({host:'localhost',port:process.env.PORT||8787,path:'/api/health',rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1)).end()"
 CMD ["npm", "run", "start"]
