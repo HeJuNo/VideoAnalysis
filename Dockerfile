@@ -9,6 +9,9 @@ COPY web/package.json web/package.json
 RUN npm ci
 COPY . .
 RUN npm run build
+# Stamped fresh on every real rebuild (this layer reruns whenever COPY . . changes), so it's
+# usable as a build number even though .git is dockerignored and no CI assigns a version.
+RUN printf '{"builtAt":"%s"}' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > server/build-info.json
 
 # Runtime stage: only the server workspace's own dependencies, plus the built SPA.
 FROM node:24-slim
@@ -18,6 +21,7 @@ COPY package.json package-lock.json ./
 COPY server/package.json server/package.json
 RUN npm ci --omit=dev -w server
 COPY server ./server
+COPY --from=build /app/server/build-info.json ./server/build-info.json
 COPY shared ./shared
 COPY --from=build /app/web/dist ./web/dist
 EXPOSE 8787

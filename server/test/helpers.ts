@@ -101,7 +101,11 @@ export interface TestContext {
 export async function setup(): Promise<TestContext> {
   const db = openDb(':memory:');
   const storage = new FakeStorage();
-  const app = createApp({ db, storage, config: { appOrigin: ORIGIN, cookieSecure: false, maxUploadBytes: 10 * 1024 * MIB } });
+  const app = createApp({
+    db,
+    storage,
+    config: { appOrigin: ORIGIN, cookieSecure: false, maxUploadBytes: 10 * 1024 * MIB, build: { builtAt: 'test-build' } },
+  });
   const request = async (path: string, { method, body, cookie }: RequestOptions = {}) =>
     app.request(path, {
       method: method ?? (body === undefined ? 'GET' : 'POST'),

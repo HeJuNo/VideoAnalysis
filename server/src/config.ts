@@ -1,8 +1,22 @@
+import { readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+
+/** When the Docker image was built; "dev" outside Docker, where no such file is generated. */
+export interface BuildInfo {
+  builtAt: string;
+}
+
+function loadBuildInfo(): BuildInfo {
+  try {
+    return JSON.parse(readFileSync(resolve(repoRoot, 'server/build-info.json'), 'utf8')) as BuildInfo;
+  } catch {
+    return { builtAt: 'dev' };
+  }
+}
 
 const schema = z
   .object({
@@ -42,6 +56,7 @@ export interface Config {
   };
   /** Set when the server should terminate HTTPS itself (e.g. no reverse proxy in front of it). */
   tls: { certPath: string; keyPath: string } | null;
+  build: BuildInfo;
 }
 
 /** For tools that only need the database (e.g. creating users) and no storage settings. */
@@ -73,5 +88,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       forcePathStyle: e.S3_FORCE_PATH_STYLE,
     },
     tls: e.TLS_CERT_PATH && e.TLS_KEY_PATH ? { certPath: e.TLS_CERT_PATH, keyPath: e.TLS_KEY_PATH } : null,
+    build: loadBuildInfo(),
   };
 }

@@ -21,6 +21,7 @@ test('reports ok when the database and storage are both reachable, without needi
   assert.equal(body.storage.ok, true);
   assert.equal(body.cors.ok, true);
   assert.equal(body.clockSkew.ok, true);
+  assert.equal(body.build.builtAt, 'test-build');
 });
 
 test('reports the CORS policy as informational only — it does not flip the overall status to unhealthy', async () => {

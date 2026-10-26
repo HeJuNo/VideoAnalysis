@@ -44,6 +44,7 @@ export function healthRoutes({ db, storage, config }: AppDeps) {
       storage: { ok: storageOk },
       cors,
       clockSkew,
+      build: config.build,
       checkedAt: now(),
     };
     return c.json(body, body.ok ? 200 : 503);

@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { UserDto } from '../../shared/types.ts';
+import type { BuildInfo } from './config.ts';
 import type { Db } from './db.ts';
 import type { ObjectStorage } from './storage.ts';
 
@@ -8,6 +9,7 @@ export interface AppConfig {
   appOrigin: string;
   cookieSecure: boolean;
   maxUploadBytes: number;
+  build: BuildInfo;
 }
 
 export interface AppDeps {

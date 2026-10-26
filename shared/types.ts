@@ -99,6 +99,8 @@ export interface HealthDto {
   /** Same reasoning as `cors` above: informational only, doesn't affect `ok`. A skewed clock makes
    * presigned upload URLs expire early or immediately, which looks like a CORS/network error. */
   clockSkew: { ok: boolean; skewSeconds: number | null; reason: string | null };
+  /** When the running image was built; "dev" when running outside Docker. */
+  build: { builtAt: string };
   checkedAt: string;
 }
 

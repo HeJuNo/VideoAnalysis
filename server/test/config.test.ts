@@ -26,3 +26,8 @@ test('rejects TLS_CERT_PATH without TLS_KEY_PATH', () => {
 test('rejects TLS_KEY_PATH without TLS_CERT_PATH', () => {
   assert.throws(() => loadConfig({ ...BASE_ENV, TLS_KEY_PATH: '/certs/key.pem' }));
 });
+
+test('build.builtAt falls back to "dev" when no build-info.json is present (i.e. outside Docker)', () => {
+  const config = loadConfig(BASE_ENV);
+  assert.equal(config.build.builtAt, 'dev');
+});

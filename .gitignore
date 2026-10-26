@@ -3,3 +3,4 @@ web/dist/
 data/
 .env
 .DS_Store
+server/build-info.json

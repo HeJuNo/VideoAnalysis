@@ -44,6 +44,10 @@ export function StatusPage() {
       <section className="card stack-sm">
         {health && (
           <>
+            <div className="row wrap">
+              <span className="grow">Build</span>
+              <span className="muted">{health.build.builtAt === 'dev' ? 'development build' : formatDateTime(health.build.builtAt)}</span>
+            </div>
             <CheckRow label="Database" ok={health.database.ok} />
             <CheckRow label="Object storage (S3)" ok={health.storage.ok} />
             <CheckRow label="Upload CORS policy" ok={health.cors.ok} detail={health.cors.reason} />
