@@ -3,6 +3,7 @@ import {
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
+  GetBucketCorsCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -36,6 +37,8 @@ export interface ObjectStorage {
   deleteObject(key: string): Promise<void>;
   /** Throws when the bucket is unreachable or misconfigured; used for health checks. */
   ping(): Promise<void>;
+  /** Whether the bucket's CORS policy allows browser uploads from this origin; used for health checks. */
+  checkCors(origin: string): Promise<{ ok: boolean; reason: string | null }>;
   /** Keys and sizes of every object under the given prefix. */
   listObjects(prefix: string): Promise<{ key: string; size: number }[]>;
   /** Reads part of an object, e.g. to probe a video's header without fetching the whole file. */
@@ -142,6 +145,26 @@ export function createS3Storage(s3: Config['s3']): ObjectStorage {
 
     async ping() {
       await client.send(new HeadBucketCommand({ Bucket }));
+    },
+
+    async checkCors(origin) {
+      let rules;
+      try {
+        rules = (await client.send(new GetBucketCorsCommand({ Bucket }))).CORSRules ?? [];
+      } catch (err) {
+        return { ok: false, reason: `Could not read the bucket's CORS policy: ${(err as Error).message}` };
+      }
+      // Matches what `npm run storage:setup` configures: PUT allowed, ETag exposed (needed to
+      // complete a multipart upload), for this exact origin or a wildcard.
+      const covered = rules.some(
+        (rule) =>
+          (rule.AllowedOrigins ?? []).some((allowed) => allowed === '*' || allowed === origin) &&
+          (rule.AllowedMethods ?? []).includes('PUT') &&
+          (rule.ExposeHeaders ?? []).some((header) => header.toLowerCase() === 'etag'),
+      );
+      return covered
+        ? { ok: true, reason: null }
+        : { ok: false, reason: `No CORS rule allows PUT uploads (with ETag exposed) from ${origin}` };
     },
 
     async listObjects(prefix) {

@@ -92,6 +92,10 @@ export interface HealthDto {
   ok: boolean;
   database: { ok: boolean };
   storage: { ok: boolean };
+  /** Whether the bucket's CORS policy allows browser uploads from this app's origin. Informational
+   * only — doesn't affect `ok` above, since it's a storage-provider setting, not something a
+   * restart fixes. */
+  cors: { ok: boolean; reason: string | null };
   checkedAt: string;
 }
 

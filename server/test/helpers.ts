@@ -54,6 +54,10 @@ export class FakeStorage implements ObjectStorage {
   }
   /** Override to `async () => { throw new Error(...) }` in a test to simulate storage being down. */
   async ping() {}
+  /** Override in a test to simulate a CORS misconfiguration. */
+  async checkCors(): Promise<{ ok: boolean; reason: string | null }> {
+    return { ok: true, reason: null };
+  }
   async listObjects(prefix: string) {
     return [...this.objects.entries()]
       .filter(([key]) => key.startsWith(prefix))

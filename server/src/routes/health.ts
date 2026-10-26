@@ -8,7 +8,7 @@ import { now } from '../db.ts';
  * Unauthenticated (Docker/Arcane health checks have no session), and only exposes booleans —
  * the actual errors are logged server-side, not sent to the client.
  */
-export function healthRoutes({ db, storage }: AppDeps) {
+export function healthRoutes({ db, storage, config }: AppDeps) {
   const app = new Hono<AppEnv>();
 
   app.get('/health', async (c) => {
@@ -28,10 +28,16 @@ export function healthRoutes({ db, storage }: AppDeps) {
       storageOk = false;
     }
 
+    const cors = await storage.checkCors(config.appOrigin).catch((err: unknown) => {
+      console.error('Health check: could not check CORS', err);
+      return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+    });
+
     const body: HealthDto = {
       ok: database && storageOk,
       database: { ok: database },
       storage: { ok: storageOk },
+      cors,
       checkedAt: now(),
     };
     return c.json(body, body.ok ? 200 : 503);
