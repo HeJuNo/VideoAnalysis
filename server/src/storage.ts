@@ -5,6 +5,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   ListPartsCommand,
   PutObjectCommand,
   S3Client,
@@ -32,6 +33,10 @@ export interface ObjectStorage {
   /** Single-request upload for small files; the browser must send the same Content-Type. */
   presignPut(key: string, contentType: string, expiresInSec: number): Promise<string>;
   deleteObject(key: string): Promise<void>;
+  /** Keys and sizes of every object under the given prefix. */
+  listObjects(prefix: string): Promise<{ key: string; size: number }[]>;
+  /** Reads part of an object, e.g. to probe a video's header without fetching the whole file. */
+  getObjectRange(key: string, offset: number, length: number): Promise<Uint8Array>;
 }
 
 export class NoSuchUploadError extends Error {}
@@ -130,6 +135,29 @@ export function createS3Storage(s3: Config['s3']): ObjectStorage {
 
     async deleteObject(key) {
       await client.send(new DeleteObjectCommand({ Bucket, Key: key }));
+    },
+
+    async listObjects(prefix) {
+      const objects: { key: string; size: number }[] = [];
+      let token: string | undefined;
+      do {
+        const out = await client.send(
+          new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken: token }),
+        );
+        for (const o of out.Contents ?? []) {
+          if (o.Key) objects.push({ key: o.Key, size: o.Size ?? 0 });
+        }
+        token = out.IsTruncated ? out.NextContinuationToken : undefined;
+      } while (token);
+      return objects;
+    },
+
+    async getObjectRange(key, offset, length) {
+      const out = await client.send(
+        new GetObjectCommand({ Bucket, Key: key, Range: `bytes=${offset}-${offset + length - 1}` }),
+      );
+      if (!out.Body) return new Uint8Array(0);
+      return out.Body.transformToByteArray();
     },
   };
 }

@@ -73,6 +73,20 @@ export interface SessionDetailDto extends SessionDto {
   videos: VideoDto[];
 }
 
+/** A video object found in storage with no matching database row (e.g. after a database reset). */
+export interface OrphanedVideoDto {
+  storageKey: string;
+  sizeBytes: number;
+}
+
+/** Orphaned videos that shared a session when they were originally uploaded. */
+export interface OrphanedGroupDto {
+  /** The session id they were originally stored under; that session no longer exists. */
+  sourceSessionId: string;
+  videos: OrphanedVideoDto[];
+  totalBytes: number;
+}
+
 export interface UploadedPart {
   partNumber: number;
   etag: string;

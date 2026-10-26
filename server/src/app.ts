@@ -6,6 +6,7 @@ import { assetRoutes } from './routes/assets.ts';
 import { athleteRoutes } from './routes/athletes.ts';
 import { authRoutes, loadUser } from './routes/auth.ts';
 import { profileRoutes } from './routes/profiles.ts';
+import { recoveredRoutes } from './routes/recovered.ts';
 import { sceneRoutes } from './routes/scenes.ts';
 import { sessionRoutes } from './routes/sessions.ts';
 import { uploadRoutes } from './routes/uploads.ts';
@@ -36,6 +37,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.route('/api', uploadRoutes(deps));
   app.route('/api', videoRoutes(deps));
   app.route('/api', profileRoutes(deps));
+  app.route('/api', recoveredRoutes(deps));
   app.route('/api', assetRoutes(deps));
   app.route('/api', sceneRoutes(deps));
   app.route('/api', athleteRoutes(deps));

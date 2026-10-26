@@ -16,6 +16,7 @@ export const MIB = 1024 * 1024;
 export class FakeStorage implements ObjectStorage {
   uploads = new Map<string, { key: string; parts: Map<number, UploadedPart> }>();
   objects = new Map<string, number>();
+  objectBytes = new Map<string, Uint8Array>();
 
   async createMultipartUpload(key: string) {
     const id = randomUUID();
@@ -49,12 +50,25 @@ export class FakeStorage implements ObjectStorage {
   }
   async deleteObject(key: string) {
     this.objects.delete(key);
+    this.objectBytes.delete(key);
+  }
+  async listObjects(prefix: string) {
+    return [...this.objects.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, size]) => ({ key, size }));
+  }
+  async getObjectRange(key: string, offset: number, length: number) {
+    const bytes = this.objectBytes.get(key);
+    if (!bytes) throw new Error(`No bytes recorded for ${key}; pass them to putObject()`);
+    return bytes.slice(offset, offset + length);
   }
   putPart(uploadId: string, partNumber: number, size: number) {
     this.uploads.get(uploadId)!.parts.set(partNumber, { partNumber, etag: `"etag-${partNumber}"`, size });
   }
-  putObject(key: string, size: number) {
+  /** `bytes` is only needed for tests that call getObjectRange() (e.g. probing on import). */
+  putObject(key: string, size: number, bytes?: Uint8Array) {
     this.objects.set(key, size);
+    if (bytes) this.objectBytes.set(key, bytes);
   }
   onlyUploadId(): string {
     assert.equal(this.uploads.size, 1);
