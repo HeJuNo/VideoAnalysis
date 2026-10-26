@@ -47,9 +47,12 @@ export function StatusPage() {
             <CheckRow label="Database" ok={health.database.ok} />
             <CheckRow label="Object storage (S3)" ok={health.storage.ok} />
             <CheckRow label="Upload CORS policy" ok={health.cors.ok} detail={health.cors.reason} />
+            <CheckRow label="Server clock" ok={health.clockSkew.ok} detail={health.clockSkew.reason} />
             <p className="muted small">
               {health.ok ? 'Everything looks fine.' : 'Something is unreachable — check the server logs for details.'}{' '}
               {!health.cors.ok && 'The CORS policy issue above will block uploads even when everything else is fine. '}
+              {!health.clockSkew.ok &&
+                'A skewed clock makes upload URLs expire early or immediately, which looks like a CORS/network error. '}
               Last checked {formatDateTime(health.checkedAt)}.
             </p>
           </>

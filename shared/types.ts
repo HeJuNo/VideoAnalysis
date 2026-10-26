@@ -96,6 +96,9 @@ export interface HealthDto {
    * only — doesn't affect `ok` above, since it's a storage-provider setting, not something a
    * restart fixes. */
   cors: { ok: boolean; reason: string | null };
+  /** Same reasoning as `cors` above: informational only, doesn't affect `ok`. A skewed clock makes
+   * presigned upload URLs expire early or immediately, which looks like a CORS/network error. */
+  clockSkew: { ok: boolean; skewSeconds: number | null; reason: string | null };
   checkedAt: string;
 }
 

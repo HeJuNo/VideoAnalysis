@@ -20,6 +20,7 @@ test('reports ok when the database and storage are both reachable, without needi
   assert.equal(body.database.ok, true);
   assert.equal(body.storage.ok, true);
   assert.equal(body.cors.ok, true);
+  assert.equal(body.clockSkew.ok, true);
 });
 
 test('reports the CORS policy as informational only — it does not flip the overall status to unhealthy', async () => {
@@ -29,6 +30,15 @@ test('reports the CORS policy as informational only — it does not flip the ove
   assert.equal(body.ok, true);
   assert.equal(body.cors.ok, false);
   assert.equal(body.cors.reason, 'simulated: origin not allowed');
+});
+
+test('reports clock skew as informational only — it does not flip the overall status to unhealthy', async () => {
+  storage.checkClockSkew = async () => ({ ok: false, skewSeconds: 120, reason: 'simulated: clock ahead by 120s' });
+  const res = await request('/api/health', { method: 'GET' });
+  const body = await json<HealthDto>(res, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.clockSkew.ok, false);
+  assert.equal(body.clockSkew.skewSeconds, 120);
 });
 
 test('reports a 503 and storage.ok false when storage is unreachable', async () => {

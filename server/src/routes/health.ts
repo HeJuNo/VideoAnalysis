@@ -33,11 +33,17 @@ export function healthRoutes({ db, storage, config }: AppDeps) {
       return { ok: false, reason: err instanceof Error ? err.message : String(err) };
     });
 
+    const clockSkew = await storage.checkClockSkew().catch((err: unknown) => {
+      console.error('Health check: could not check clock skew', err);
+      return { ok: false, skewSeconds: null, reason: err instanceof Error ? err.message : String(err) };
+    });
+
     const body: HealthDto = {
       ok: database && storageOk,
       database: { ok: database },
       storage: { ok: storageOk },
       cors,
+      clockSkew,
       checkedAt: now(),
     };
     return c.json(body, body.ok ? 200 : 503);

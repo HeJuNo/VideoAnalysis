@@ -39,6 +39,11 @@ export interface ObjectStorage {
   ping(): Promise<void>;
   /** Whether the bucket's CORS policy allows browser uploads from this origin; used for health checks. */
   checkCors(origin: string): Promise<{ ok: boolean; reason: string | null }>;
+  /**
+   * How far this server's clock is from the storage endpoint's, in seconds (positive = ahead).
+   * A skewed clock makes presigned URLs expire early or immediately — see its effect on uploads.
+   */
+  checkClockSkew(): Promise<{ ok: boolean; skewSeconds: number | null; reason: string | null }>;
   /** Keys and sizes of every object under the given prefix. */
   listObjects(prefix: string): Promise<{ key: string; size: number }[]>;
   /** Reads part of an object, e.g. to probe a video's header without fetching the whole file. */
@@ -46,6 +51,10 @@ export interface ObjectStorage {
 }
 
 export class NoSuchUploadError extends Error {}
+
+// Beyond this, a presigned URL's embedded timestamp is skewed enough to risk expiring early
+// (or being rejected outright) well before its nominal TTL.
+const MAX_CLOCK_SKEW_SEC = 30;
 
 export function createS3Client(s3: Config['s3']): S3Client {
   return new S3Client({
@@ -165,6 +174,24 @@ export function createS3Storage(s3: Config['s3']): ObjectStorage {
       return covered
         ? { ok: true, reason: null }
         : { ok: false, reason: `No CORS rule allows PUT uploads (with ETag exposed) from ${origin}` };
+    },
+
+    async checkClockSkew() {
+      let res: Response;
+      try {
+        res = await fetch(s3.endpoint, { method: 'HEAD' });
+      } catch (err) {
+        return { ok: false, skewSeconds: null, reason: `Could not reach the storage endpoint: ${(err as Error).message}` };
+      }
+      const header = res.headers.get('date');
+      if (!header) return { ok: false, skewSeconds: null, reason: "Storage endpoint didn't return a Date header" };
+      const skewSeconds = Math.round((Date.now() - Date.parse(header)) / 1000);
+      const ok = Math.abs(skewSeconds) <= MAX_CLOCK_SKEW_SEC;
+      return {
+        ok,
+        skewSeconds,
+        reason: ok ? null : `Server clock is ${skewSeconds > 0 ? 'ahead' : 'behind'} by ${Math.abs(skewSeconds)}s`,
+      };
     },
 
     async listObjects(prefix) {

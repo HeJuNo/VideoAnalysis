@@ -58,6 +58,10 @@ export class FakeStorage implements ObjectStorage {
   async checkCors(): Promise<{ ok: boolean; reason: string | null }> {
     return { ok: true, reason: null };
   }
+  /** Override in a test to simulate a skewed server clock. */
+  async checkClockSkew(): Promise<{ ok: boolean; skewSeconds: number | null; reason: string | null }> {
+    return { ok: true, skewSeconds: 0, reason: null };
+  }
   async listObjects(prefix: string) {
     return [...this.objects.entries()]
       .filter(([key]) => key.startsWith(prefix))
