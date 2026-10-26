@@ -66,31 +66,26 @@ Hetzner's multipart upload support is still to be verified before switching.
 
 ## Deploy
 
-Docker Compose on a server that already runs Traefik (for TLS/routing). GitHub Actions runs the
-test/typecheck/build gate on every push to `main`, then SSHes in and redeploys.
+Docker Compose on a server that already runs Traefik (for TLS/routing) and is managed by
+[Arcane](https://getarcane.app). Arcane pulls this repo itself (Git Sync) and redeploys on push —
+there is no GitHub Actions workflow and nothing SSHes in from CI.
 
-One-time setup on the server:
+One-time setup, in Arcane:
 
-```sh
-git clone <repo-url> && cd <repo-dir>
-cp .env.example .env   # fill in real values: COOKIE_SECURE=true, APP_ORIGIN=https://<your domain>,
-                       # APP_DOMAIN=<your domain>, TRAEFIK_NETWORK=<your Traefik network name>, S3_*
-mkdir -p data          # bind-mounted so the SQLite db survives redeploys
-```
+1. **Customization → Git Repositories → Add Repository** — this repo's URL (public, no auth needed).
+2. **Projects → Create from Git Repo → Pull** — Compose File Path: `docker-compose.yml`.
+3. Enable **Auto Sync** (pick an interval) and **Redeploy After Sync** so every push to `main`
+   redeploys automatically; otherwise click **Sync from Git** manually.
+4. In that project's environment settings, set the real values: `COOKIE_SECURE=true`,
+   `APP_ORIGIN=https://<your domain>`, `APP_DOMAIN=<your domain>`, and the `S3_*` keys. These are
+   never committed — Arcane merges them into `.env` on the host itself.
 
-`docker-compose.yml` itself is never edited — the Traefik network name and `Host(...)` domain come
-from `APP_DOMAIN`/`TRAEFIK_NETWORK` in `.env`, so `git pull` never collides with local changes to it.
+`docker-compose.yml` is read-only once synced from git — edit it in this repo, push, then
+**Sync from Git** in Arcane to pick up the change. The Traefik network name is the literal
+`core-web` in that file (edit and push if yours differs).
 
-GitHub Actions secrets needed (repo → Settings → Secrets and variables → Actions):
-
-| Secret | Value |
-|---|---|
-| `DEPLOY_SSH_HOST` | server's address |
-| `DEPLOY_SSH_USER` | SSH user on the server |
-| `DEPLOY_SSH_KEY` | private half of a dedicated deploy key (not your personal key) — add the public half to that user's `authorized_keys` |
-| `DEPLOY_PATH` | absolute path to the cloned repo on the server |
-
-After that, `git push` to `main` builds, tests and redeploys automatically.
+There is no CI test gate before deploy: Arcane pulls and redeploys whatever is on `main`, so run
+`npm test && npm run typecheck && npm run build` yourself before pushing to `main`.
 
 ## Commands
 

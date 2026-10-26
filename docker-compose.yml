@@ -1,12 +1,12 @@
-# Production deploy, run on the server (not used for local dev — that's `npm run dev`).
-# One-time setup on the server before the first `docker compose up`:
-#   1. git clone the repo here
-#   2. cp .env.example .env   and fill in real values: COOKIE_SECURE=true, APP_ORIGIN=https://<your domain>,
-#      APP_DOMAIN=<your domain>, TRAEFIK_NETWORK=<your Traefik network name>, S3_*
-#   3. mkdir -p data          (bind-mounted below so the SQLite db survives redeploys)
-#
-# docker-compose.yml itself is never edited on the server — all host-specific values come from .env,
-# so `git pull` never collides with local changes to this file.
+# Production deploy (not used for local dev — that's `npm run dev`; see docker-compose.local.yml
+# to run this image locally instead). Deployed by Arcane's Git Sync (Pull), not by hand:
+#   Arcane > Customization > Git Repositories > add this repo
+#   Arcane > Projects > Create from Git Repo (Pull) > Compose File Path: docker-compose.yml
+#   Enable Auto Sync + Redeploy After Sync to deploy automatically on every push.
+# This file is read-only once synced — edit it here, push, then "Sync from Git" in Arcane.
+# COOKIE_SECURE, APP_ORIGIN, APP_DOMAIN and S3_* are set in Arcane's project environment settings,
+# never committed. The Traefik network name is the literal `core-web` below, not an env var —
+# change it here (and push) if your Traefik network is named differently.
 services:
   app:
     build: .
